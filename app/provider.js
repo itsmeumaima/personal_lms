@@ -4,6 +4,7 @@ import { USER_TABLE } from '@/configs/schema';
 import { useUser } from '@clerk/nextjs'
 import { eq } from 'drizzle-orm';
 import React, { useEffect } from 'react'
+import axios from 'axios';     //--------------
 
 function Provider({children}) {
 

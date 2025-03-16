@@ -1,45 +1,43 @@
-import {db} from "@/configs/db"
+import { db } from "@/configs/db";
 import { inngest } from "./client";
 import { USER_TABLE } from "@/configs/schema";
+import { eq } from "drizzle-orm"; 
 
-export const helloWorld = inngest.createFunction(
-  { id: "hello-world" },
-  { event: "test/hello.world" },
-  async ({ event, step }) => {
-    await step.sleep("wait-a-moment", "1s");
-    return { message: `Hello ${event.data.email}!` };
-  },
-);
+const extractNameFromEmail = (email) => {
+  if (!email) return "Unknown User";
+  return email.split("@")[0].replace(/[^a-zA-Z ]/g, " ");
+};
 
-// Edited by G - part: inngest function
 export const CreateNewUser = inngest.createFunction(
-  {id : "create-user"},
-  {event : "user.create"},
-  async({event,step})=>{
-    const {user} = event.data;
-    //get event data
-    const result = await step.run('Check user and create new if not in db',async()=>{
-      //check if user already exist
-      const result=await db.select().from(USER_TABLE)
-              .where(eq(USER_TABLE.email,user?.primaryEmailAddress?.emailAddress))
-      
-              console.log(result)
-              if (result?.length==0){
-                  const userResp=await db.insert(USER_TABLE).values({
-                      name:user?.fullName,
-                      email:user?.primaryEmailAddress?.emailAddress
-                  }).returning({id:USER_TABLE.id})
-      
-                  // console.log(userResp);
-                  return userResp;
-              }
-              return result
-    })
-    return 'Success';
+  { id: "create-user" },
+  { event: "user.create" },
+  async ({ event, step }) => {
+    const { user } = event.data;
+
+    const result = await step.run('Check user and create new if not in db', async () => {
+      const existingUser = await db.select().from(USER_TABLE)
+        .where(eq(USER_TABLE.email, user?.primaryEmailAddress?.emailAddress));
+
+      console.log("Existing user check:", existingUser);
+
+      if (existingUser.length === 0) {
+        console.log("Received user data:", user);
+        console.log("Extracted Name:", user?.fullName);
+        console.log("Extracted Email:", user?.primaryEmailAddress?.emailAddress);
+
+        const userName = user?.fullName?.trim() || extractNameFromEmail(user?.primaryEmailAddress?.emailAddress);
+
+        const userResp = await db.insert(USER_TABLE).values({
+          name: userName,
+          email: user?.primaryEmailAddress?.emailAddress
+        }).returning({ id: USER_TABLE.id });
+
+        console.log("Inserted user:", userResp);
+        return userResp;
+      }
+      return existingUser;
+    });
+
+    return "Success";
   }
-  //Step is to send welcome email notification:
-
-  //Step to send email notification after 3 days once user join it
-
-)
-
+);
